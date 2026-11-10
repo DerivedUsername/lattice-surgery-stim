@@ -167,6 +167,7 @@ def syndrome_round(circuit, checks, idx : dict[tuple[float, float], int], data, 
     for check in checks:
         circuit.append("M", [idx[check.ancilla]])
         log.record((check.ancilla,r))
+    circuit.append("TICK")
 
     
 def add_round_detectors(circuit, checks, log, r) -> None:
