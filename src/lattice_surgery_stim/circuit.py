@@ -170,13 +170,15 @@ def syndrome_round(circuit, checks, idx : dict[tuple[float, float], int], data, 
     circuit.append("TICK")
 
     
-def add_round_detectors(circuit, checks, log, r) -> None:
+def add_round_detectors(circuit, checks, log, r, skip = frozenset()) -> None:
     """
     Add detectors for the current round of measurements.
     For each check add a detector that compares the current measurement with the previous.
     If round == 0, compare the measurement against known 0.
     """
     for check in checks:
+        if check.ancilla in skip:
+            continue
         if r == 0:
             if check.type == "Z":
                 targets = [log.rec((check.ancilla, 0))]
