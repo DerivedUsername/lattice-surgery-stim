@@ -11,7 +11,9 @@ def new_and_grown_checks(d):
     old = {c.ancilla: c for c in check_patch(0, 0, d, d) + check_patch(d + 1, 0, d, d)}
     merged = check_patch(0, 0, 2 * d + 1, d)
     new = [c for c in merged if c.ancilla not in old]
-    grown = [c for c in merged if c.ancilla in old and c.weight != old[c.ancilla].weight]
+    grown = [
+        c for c in merged if c.ancilla in old and c.weight != old[c.ancilla].weight
+    ]
     return new, grown
 
 
@@ -37,7 +39,9 @@ def test_grown_checks_gain_two_seam_qubits(d):
     assert len(grown) == d - 1
     for c in grown:
         assert c.type == "X"
-        added = {q for q in c.corners if q is not None} - {q for q in old[c.ancilla].corners if q is not None}
+        added = {q for q in c.corners if q is not None} - {
+            q for q in old[c.ancilla].corners if q is not None
+        }
         assert len(added) == 2
         assert all(q[0] == d for q in added)
 
@@ -57,7 +61,9 @@ def test_detectors_are_deterministic(merged_rounds):
 
 def test_noiseless_circuit_is_silent():
     circuit = merge_circuits(3, 3, 0.0)
-    dets, obs = circuit.compile_detector_sampler(seed=0).sample(200, separate_observables=True)
+    dets, obs = circuit.compile_detector_sampler(seed=0).sample(
+        200, separate_observables=True
+    )
     assert not dets.any()
     assert not obs.any()
 

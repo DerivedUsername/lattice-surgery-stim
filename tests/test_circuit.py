@@ -26,7 +26,9 @@ def logical_error_rate(circuit, shots, seed):
 
     dem = circuit.detector_error_model(decompose_errors=True)
     matching = pymatching.Matching.from_detector_error_model(dem)
-    dets, obs = circuit.compile_detector_sampler(seed=seed).sample(shots, separate_observables=True)
+    dets, obs = circuit.compile_detector_sampler(seed=seed).sample(
+        shots, separate_observables=True
+    )
     return (matching.decode_batch(dets) != obs).any(axis=1).mean()
 
 
@@ -55,7 +57,9 @@ def test_detectors_are_deterministic(d):
 
 def test_noiseless_circuit_is_silent():
     circuit = memory_circuit(one_patch(3), 3, 0.0)
-    dets, obs = circuit.compile_detector_sampler(seed=0).sample(200, separate_observables=True)
+    dets, obs = circuit.compile_detector_sampler(seed=0).sample(
+        200, separate_observables=True
+    )
     assert not dets.any()
     assert not obs.any()
 

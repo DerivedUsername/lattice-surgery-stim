@@ -2,10 +2,15 @@
 This module defines the circuit construction for the rotated surface code using stim.
 It contains functions to generate the circuits for logical X and Z measurements and corrections.
 """
-from lattice_surgery_stim.patch import Check, check_patch, data_qubits, logical_z
+
 import stim
 
-def index_map(rectangles: tuple[tuple[int, int, int, int], ...]) -> dict[tuple[float, float], int]:
+from lattice_surgery_stim.patch import check_patch, data_qubits, logical_z
+
+
+def index_map(
+    rectangles: tuple[tuple[int, int, int, int], ...],
+) -> dict[tuple[float, float], int]:
     """
     Return a mapping from data qubit coordinates to their indices in the circuit. Both data and ancilla qubits are included. We implement a version that supports multiple rectangles.
     """
@@ -18,21 +23,17 @@ def index_map(rectangles: tuple[tuple[int, int, int, int], ...]) -> dict[tuple[f
     data = sorted(data)
     ancilla = sorted(set(ancilla))
     return {
-        **{
-            coord: (i)
-            for i, coord in enumerate(data)
-        },
-        **{
-            coord: len(data) + i
-            for i, coord in enumerate(ancilla)
-        },
+        **{coord: (i) for i, coord in enumerate(data)},
+        **{coord: len(data) + i for i, coord in enumerate(ancilla)},
     }
+
 
 class MeasurementLog:
     """
-    Assigns each measurement an absolute index in emission order and converts it to 
+    Assigns each measurement an absolute index in emission order and converts it to
     a stim rec target relative to the current measurement count.
     """
+
     def __init__(self) -> None:
         """index is the mapping from (ancilla qubit, round) or a data qubit for final measurements to its measurement index, i.e. how many measurements came before it."""
         self.index = {}
@@ -46,7 +47,10 @@ class MeasurementLog:
     def rec(self, key: tuple) -> stim.GateTarget:
         return stim.target_rec(-self.count + self.index[key])
 
-def syndrome_round(circuit, checks, idx : dict[tuple[float, float], int], data, log, r ,p) -> None:
+
+def syndrome_round(
+    circuit, checks, idx: dict[tuple[float, float], int], data, log, r, p
+) -> None:
     """
     Inputs are from the current circuit, the list of checks, the qubit index mapping, the measurement log, and the round and patch parameters.
     Measure every check once.
@@ -65,54 +69,32 @@ def syndrome_round(circuit, checks, idx : dict[tuple[float, float], int], data, 
     """
     Record all ancilla qubit indices, and all X qubit indices, and data indices, all in order
     """
-    ancilla_indices = [
-        idx[check.ancilla]
-        for check in checks
-    ]
-    x_indices = [
-        idx[check.ancilla]
-        for check in checks
-        if check.type == "X"
-    ]
+    ancilla_indices = [idx[check.ancilla] for check in checks]
+    x_indices = [idx[check.ancilla] for check in checks if check.type == "X"]
     data_indices = [idx[i] for i in data]
     """
     DEPOLARIZE1(p) on data at the start
     """
-    circuit.append("DEPOLARIZE1", [
-        i
-        for i in data_indices
-    ], p)
+    circuit.append("DEPOLARIZE1", [i for i in data_indices], p)
     """
     Reset all ancilla qubits to zero.
     """
-    circuit.append("RZ", [
-        i
-        for i in ancilla_indices
-    ])
+    circuit.append("RZ", [i for i in ancilla_indices])
     """
     X_ERROR(p) after the reset
     """
-    circuit.append("X_ERROR", [
-        i
-        for i in ancilla_indices
-    ], p)
+    circuit.append("X_ERROR", [i for i in ancilla_indices], p)
 
     circuit.append("TICK")
-    
+
     """
     H on all X-check ancillas.
     """
-    circuit.append("H", [
-        i
-        for i in x_indices
-    ])
+    circuit.append("H", [i for i in x_indices])
     """
     DEPOLARIZE1(p) after each H
     """
-    circuit.append("DEPOLARIZE1", [
-        i
-        for i in x_indices
-    ], p)
+    circuit.append("DEPOLARIZE1", [i for i in x_indices], p)
     circuit.append("TICK")
     """
     Four CNOT steps in order. In step k, every ancilla interacts with its kth data qubit. Note CNOT direction depends on the check type.
@@ -122,17 +104,21 @@ def syndrome_round(circuit, checks, idx : dict[tuple[float, float], int], data, 
         for check in checks:
             data_qubit = check.corners[step]
             if data_qubit == None:
-               continue
+                continue
             if check.type == "Z":
-                targets.extend([
-                    idx[data_qubit],
-                    idx[check.ancilla],
-                ])
+                targets.extend(
+                    [
+                        idx[data_qubit],
+                        idx[check.ancilla],
+                    ]
+                )
             else:
-                targets.extend([
-                    idx[check.ancilla],
-                    idx[data_qubit],
-                ])
+                targets.extend(
+                    [
+                        idx[check.ancilla],
+                        idx[data_qubit],
+                    ]
+                )
         circuit.append("CX", targets)
         """
         DEPOLARIZE2(p) on each CNOT layer's targets
@@ -142,35 +128,26 @@ def syndrome_round(circuit, checks, idx : dict[tuple[float, float], int], data, 
     """
     H on the X ancillas again.
     """
-    circuit.append("H", [
-        i
-        for i in x_indices
-    ])
+    circuit.append("H", [i for i in x_indices])
     """
     DEPOLARIZE1(p) after each H
     """
-    circuit.append("DEPOLARIZE1", [
-        i
-        for i in x_indices
-    ], p)
+    circuit.append("DEPOLARIZE1", [i for i in x_indices], p)
     circuit.append("TICK")
     """
     X_ERROR(p) before the M
     """
-    circuit.append("X_ERROR", [
-        i
-        for i in ancilla_indices
-    ], p)
+    circuit.append("X_ERROR", [i for i in ancilla_indices], p)
     """
     Measure all ancilla qubits in Z.
     """
     for check in checks:
         circuit.append("M", [idx[check.ancilla]])
-        log.record((check.ancilla,r))
+        log.record((check.ancilla, r))
     circuit.append("TICK")
 
-    
-def add_round_detectors(circuit, checks, log, r, skip = frozenset()) -> None:
+
+def add_round_detectors(circuit, checks, log, r, skip=frozenset()) -> None:
     """
     Add detectors for the current round of measurements.
     For each check add a detector that compares the current measurement with the previous.
@@ -190,6 +167,7 @@ def add_round_detectors(circuit, checks, log, r, skip = frozenset()) -> None:
                 log.rec((check.ancilla, r - 1)),
             ]
         circuit.append("DETECTOR", targets, [check.ancilla[0], check.ancilla[1], r])
+
 
 def memory_circuit(rectangles, rounds, p) -> stim.Circuit:
     """
@@ -218,41 +196,32 @@ def memory_circuit(rectangles, rounds, p) -> stim.Circuit:
     """
     for qubit, index in idx.items():
         circuit.append("QUBIT_COORDS", [index], [qubit[0], qubit[1]])
-    
+
     """
     initialize data in 0
     """
-    circuit.append("R", [
-        idx[qubit]
-        for qubit in data
-    ])
+    circuit.append("R", [idx[qubit] for qubit in data])
     """
     X error on data after reset of data qubits, tick
     """
-    circuit.append("X_ERROR", [
-        idx[qubit]
-        for qubit in data
-    ], p)
+    circuit.append("X_ERROR", [idx[qubit] for qubit in data], p)
     circuit.append("TICK")
     """
     DO all rounds, syndrom first, then add detectors
     """
     for r in range(rounds):
-        syndrome_round(circuit, checks,idx, data, log, r, p)
+        syndrome_round(circuit, checks, idx, data, log, r, p)
         add_round_detectors(circuit, checks, log, r)
     """
     X error on data before final measurement
     """
-    circuit.append("X_ERROR", [
-        idx[qubit]
-        for qubit in data
-    ], p)
+    circuit.append("X_ERROR", [idx[qubit] for qubit in data], p)
     """
     Measure all data qubits in Z for Z memory, tick
     """
     for qubit in data:
         circuit.append("M", [idx[qubit]])
-        log.record((qubit))
+        log.record(qubit)
     circuit.append("TICK")
 
     """
@@ -261,8 +230,12 @@ def memory_circuit(rectangles, rounds, p) -> stim.Circuit:
     for check in checks:
         if check.type == "Z":
             targets = [log.rec((check.ancilla, rounds - 1))]
-            targets.extend(log.rec(qubit) for qubit in check.corners if qubit is not None)
-            circuit.append("DETECTOR", targets, [check.ancilla[0], check.ancilla[1], rounds])
+            targets.extend(
+                log.rec(qubit) for qubit in check.corners if qubit is not None
+            )
+            circuit.append(
+                "DETECTOR", targets, [check.ancilla[0], check.ancilla[1], rounds]
+            )
     """
     Observables are logical Z operators.
     """
@@ -275,11 +248,3 @@ def memory_circuit(rectangles, rounds, p) -> stim.Circuit:
         targets_obs = []
         rr += 1
     return circuit
-
-
-
-
-
-        
-    
-    
